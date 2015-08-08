@@ -1,0 +1,61 @@
+---
+title: "TulaLens"
+author: "Abhijeet Sharma"
+date: "August 8, 2015"
+output: html_document
+---
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+input_df <- read.csv("data/Pregnant_women_all.csv", na.strings = "")
+str(input_df)
+```
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+library(ggplot2)
+p <- ggplot(input_df, aes(x=Fee_amount, y=Type_facility)) + geom_point()
+```
+
+```{r}
+
+library(rpart)
+library(rattle)
+library(caret)
+
+switched <- input_df[, c("Age", "House_income", "Months_pregnant", "Number_visits", "Type_facility", "Children", 
+                         "First_visit", "Last_visit", "Minutes_doctor", "Minutes_waiting", "Switched_facility")]
+switched = switched[complete.cases(switched), ]
+criteria = switched$Switched_facility == "Yes" | switched$Switched_facility == "No"
+switched = switched[criteria, ]
+table(switched$Switched_facility)
+switched$Switched_facility = factor(switched$Switched_facility)
+```
+
+```{r}
+inTrain <- createDataPartition(switched$Switched_facility, p=0.8, list = FALSE)
+train <- switched[inTrain, ]
+test <- switched[-inTrain, ]
+```
+
+
+```
+fit.rpart <- rpart(Switched_facility ~ Age + House_income + Months_pregnant + Number_visits + Type_facility + Children +  
+               First_visit + Last_visit + Minutes_doctor + Minutes_waiting, data=train)
+fancyRpartPlot(fit.rpart)
+
+#fit.logreg <- train(Switched_facility ~ Age + House_income + Months_pregnant + Number_visits + Type_facility + Children +  
+#                  First_visit + Last_visit + Minutes_doctor + Minutes_waiting, data=switched, method="logreg")
+fit.rf <- train(Switched_facility ~ Age + House_income + Months_pregnant + Number_visits + Type_facility + Children +  
+                  First_visit + Last_visit + Minutes_doctor + Minutes_waiting, data=train, method="rf")
+predict.rf <- predict(fit.rf, newdata=test[, -11])
+conf.rf <- confusionMatrix(predict.rf, test$Switched_facility)
+View(data.frame(predict.rf, test$Switched_facility))
+imp <- varImp(fit.rf)
+plot(imp)
+step(fit.rf, ~.^2)
+```
